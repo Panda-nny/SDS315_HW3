@@ -1,0 +1,292 @@
+---
+title: "HW3: https://github.com/Panda-nny/SDS315_HW3"
+author: "Danny Pan"
+date: "2025-02-09"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(mosaic)
+library(RColorBrewer)
+myPalette <- brewer.pal(5, "Set2") 
+```
+
+## Problem 1:
+
+### 1.A)
+
+**Claim:** Gas stations charge more if they lack direct competition in sight.
+
+**Evidence:**
+
+```{r echo = FALSE, message = FALSE}
+set.rseed(1)
+Gas <- read_csv("GasPrices.csv")
+NdiffA <- numeric(0)
+for(i in 1:5000) {
+  gasBoot <- mosaic::resample(Gas) %>%
+    group_by(Competitors) %>%
+    summarize(avgPrice = mean(Price))
+  NdiffA[i] <- as.numeric(gasBoot[1,2]-gasBoot[2,2])
+}
+NdiffA <- as_tibble(NdiffA)
+ggplot(NdiffA, aes(x = value)) + geom_histogram() +
+  labs(title = "Difference in Bootstrapped Mean Prices by Presence of Competitor", x = "Diff of Mean Prices (No Competitor - Competitor)")
+
+#confint(NdiffA$value, level=0.95)
+```
+
+**Conclusion:** According to our bootstrapped samples, 95% of the difference in means between gas prices of stations with no competitors vs. with competitors fall within the interval [-0.0067, 0.0553]. Since 0 is within the interval, there is no concrete evidence that gas stations charge more if they lack direct competition in sight.
+
+\pagebreak
+
+### 1.B)
+
+**Claim:** The richer the area, the higher the gas prices.
+
+**Evidence:**
+
+```{r echo = FALSE, message = FALSE}
+
+ggplot(Gas, aes(x = Income / 10000, y = Price)) + geom_point() + labs(title = "Distribution of Gas Prices vs. Household Income", x = "Median Household Income of ZIP code (times $10,000)",y = "Gas Prices ($)") + geom_smooth(method = "lm", se = FALSE)
+
+#cor(Gas$Price,Gas$Income)**2
+```
+
+**Conclusion:** The scatterplot of gas prices vs. area income for the given sample suggests a weak relationship between the two variables. According to the r\^2 value, only around 15.69% of the variation in gas prices can be explained by differences in the station's median ZIP code income.
+
+\pagebreak
+
+### 1.C)
+
+**Claim:** Gas stations at stoplights charge more.
+
+**Evidence:**
+
+```{r echo = FALSE, message = FALSE}
+set.rseed(1)
+NdiffB <- numeric(0)
+for(i in 1:5000) {
+  gasBoot <- mosaic::resample(Gas) %>%
+    group_by(Stoplight) %>%
+    summarize(avgPrice = mean(Price))
+  NdiffB[i] <- as.numeric(gasBoot[2,2]-gasBoot[1,2])
+}
+NdiffB <- as_tibble(NdiffB)
+ggplot(NdiffB) + geom_histogram(aes(x = value)) +
+  labs(title = "Difference in Bootstrapped Mean Prices by Presence of Stoplight", x = "Diff of Mean Prices (Stoplight - No Stoplight)")
+
+#confint(NdiffB$value, level=0.95)
+```
+
+**Conclusion:** According to our bootstrapped samples, 95% of the difference in means between gas prices of stations by a stoplight vs. stations not by a stoplight lies within the interval [-0.0380, 0.0298]. Since 0 is within the interval, there is no concrete evidence that gas stations charge more if they are at a stoplight.
+
+\pagebreak
+
+### 1.D)
+
+**Claim:** Gas stations with direct highway access charge more.
+
+**Evidence:**
+
+```{r echo = FALSE, message = FALSE}
+set.rseed(1)
+NdiffD <- numeric(0)
+for(i in 1:5000) {
+  gasBoot <- mosaic::resample(Gas) %>%
+    group_by(Highway) %>%
+    summarize(avgPrice = mean(Price))
+  NdiffD[i] <- as.numeric(gasBoot[2,2]-gasBoot[1,2])
+}
+NdiffD <- as_tibble(NdiffD)
+ggplot(NdiffD) + geom_histogram(aes(x = value)) +
+  labs(title = "Difference in Bootstrapped Mean Prices by Highway Accessibility", x = "Diff of Mean Prices (Highway Access - No Highway Access)")
+
+#confint(NdiffD$value, level=0.95)
+```
+
+**Conclusion:** According to our bootstrapped samples, 95% of the difference in means between gas prices of stations with direct access to a highway vs. with no direct access to a highway fall within the interval [0.0099, 0.0811]. Since 0 is not within the interval, evidence suggests that with 95% confidence, gas prices are higher for stations with direct access to highways.
+
+\pagebreak
+
+### 1.E)
+
+**Claim:** Shell charges more than all other non-Shell brands
+
+**Evidence:**
+
+```{r echo = FALSE, message = FALSE}
+set.rseed(1)
+NdiffE <- numeric(0)
+for(i in 1:5000) {
+  gasBoot <- mosaic::resample(Gas) %>%
+    group_by(Name) %>%
+    summarize(avgPrice = mean(Price))
+  NdiffE[i] <- max(gasBoot$avgPrice) == gasBoot$avgPrice[gasBoot$Name == "Shell"]
+}
+NdiffE <- as_tibble(NdiffE)
+
+pie(table(NdiffE), labels = c(paste0("Not Shell (",100 - sum(NdiffE$value) / 100,"%)"),paste0("Shell (",sum(NdiffE$value) / 100,"%)")), col=myPalette, border = 'white', main = "Proportion of Bootstrapped Samples that Charged Highest")
+```
+
+**Conclusion:** According to our bootstrapped samples, Shell was the gas station that had the highest average prices only around 0.11% of the time. This strongly suggests that Shell does not charge higher than every other brand.
+
+\pagebreak
+
+## Problem 2:
+
+### 2.A)
+
+```{r echo = FALSE, message = FALSE}
+set.seed(1)
+sclass <- read_csv("sclass.csv") %>% select(price, mileage, trim, color, year)
+AFilter <- sclass %>% filter(year == 2011 & trim == "63 AMG")
+boot_2A <- do(5000)*mean(~mileage, data=mosaic::resample(AFilter))
+ggplot(boot_2A) + geom_histogram(aes(x = mean)) +
+  labs(title = "Distribution of Bootstrapped Avg Mileage", x = "Avg Mileage of 2011 S-Class 63 AMGs")
+
+#round(confint(boot_2A$mean, level=0.95))
+```
+
+Upon evaluating bootstrapped samples for the average mileage of 2011 S-Class 63 AMGs, the true average lies within the interval [26256,31851] with a 95% confidence.
+
+### 2.B)
+
+```{r echo = FALSE, message = FALSE}
+set.seed(1)
+BFilter <- sclass %>% filter(year == 2014 & trim == "550")
+boot_2B <- numeric(0)
+for(i in 1:5000) {
+  colorProp <- mosaic::resample(BFilter) %>%
+    group_by(color) %>%
+    summarize(colorProp = n() / nrow(BFilter)) %>%
+    filter(color == 'Black')
+  boot_2B[i] <- as.numeric(colorProp[1,2])
+}
+boot_2B <- as_tibble(boot_2B)
+ggplot(boot_2B) + geom_histogram(aes(x = value)) + labs(title = "Distribution of Bootstrapped Black Paint Prop", x = "Prop of 2014 S-Class 550s Painted Black")
+
+#confint(boot_2B$value, level=0.95)
+```
+
+Upon evaluating bootstrapped samples for the proportion of all 2014 S-Class 550s that were painted black, the true proportion lies within the interval [0.417,0.453] with a 95% confidence.
+
+\pagebreak
+
+## Problem 3:
+
+### 3.A)
+
+**Question:** Is there evidence that one show (between "Living with Ed" and "My Name is Earl" consistently produces a higher mean Q1_Happy response among viewers?
+
+**Answer:**
+
+```{r echo = FALSE, message = FALSE}
+survey <- read_csv("nbc_pilotsurvey.csv")
+EdEarl <- survey %>% filter(Show == "Living with Ed" | Show == "My Name is Earl")
+set.rseed(1)
+Q1diff <- numeric(0)
+for(i in 1:5000) {
+  Q1Boot <- mosaic::resample(EdEarl) %>%
+    group_by(Show) %>%
+    summarize(avgHappy = mean(Q1_Happy))
+  Q1diff[i] <- as.numeric(Q1Boot[1,2]-Q1Boot[2,2])
+}
+Q1diff <- as_tibble(Q1diff)
+
+ggplot(Q1diff) + geom_histogram(aes(x = value)) +
+  labs(title = "Difference in Bootstrapped Mean Happiness Rating (Scale of 1-5)", x = "Diff of Mean Ratings (Living With Ed - My Name is Earl)")
+
+#confint(Q1diff$value, level=0.95)
+```
+
+The histogram of bootstrapped (simulated) samples of differences in mean happiness ratings for the shows "Living with Ed" and "My Name is Earl" suggest that the true difference in ratings lie within the interval [-0.093,0.395] with a 95% confidence. Since 0 is within this interval, theres no strong evidence suggesting that one show is consistently rated higher than the other in the happiness metric.
+
+\pagebreak
+
+### 3.B)
+
+**Question:** Is there evidence that one show between “The Biggest Loser” and “The Apprentice: Los Angeles” consistently produces a higher mean Q1_Annoyed response among viewers?
+
+**Answer:**
+
+```{r echo = FALSE, message = FALSE}
+set.rseed(1)
+BiggestApprentice <- survey %>% filter(Show == "The Biggest Loser" | Show == "The Apprentice: Los Angeles")
+annoyedDiff <- numeric(0)
+for(i in 1:5000) {
+  annoyedBoot <- mosaic::resample(BiggestApprentice) %>%
+    group_by(Show) %>%
+    summarize(avgAnnoyed = mean(Q1_Annoyed))
+  annoyedDiff[i] <- as.numeric(annoyedBoot[1,2]-annoyedBoot[2,2])
+}
+annoyedDiff <- as_tibble(annoyedDiff)
+
+ggplot(annoyedDiff) + geom_histogram(aes(x = value)) +
+  labs(title = "Difference in Bootstrapped Mean Annoyance Rating (Scale of 1-5)", x = "Diff of Mean Ratings (The Apprentice: LA - The Biggest Loser)")
+
+#confint(annoyedDiff$value, level=0.95)
+```
+
+The histogram of bootstrapped samples of differences in mean annoyance ratings for the shows "The Apprentice: LA" and "The Biggest Loser" suggest that the true difference in ratings lie within the interval [0.016,0.525] with a 95% confidence. Since 0 is not within this interval, evidence suggests that "The Apprentice" is consistently rated higher than The Biggest Loser" in the annoyance metric.
+
+\pagebreak
+
+### 3.C)
+
+**Question:** For the show, "Dancing with the Stars", what proportion of American TV watchers would we expect to give a response of 4 or greater to the “Q2_Confusing” question?
+
+**Answer:**
+
+```{r echo = FALSE, message = FALSE}
+DWTS <- survey %>% filter(Show == "Dancing with the Stars")
+set.rseed(1)
+confusionProp <- numeric(0)
+for(i in 1:5000) {
+   confusion <- mosaic::resample(DWTS) %>%
+    group_by(Q2_Confusing > 3) %>%
+    summarize(count = n())
+  confusionProp[i] <- as.numeric(confusion[2,2]) / nrow(DWTS)
+}
+confusionProp <- as_tibble(confusionProp)
+
+ggplot(confusionProp) + geom_histogram(aes(x = value)) +
+  labs(title = 'Bootstrapped Mean Proportions of High Confusion Ratings for \n"Dancing With the Stars"', x = "High Confusion Rating Proportion (At least 4/5)")
+
+#confint(confusionProp$value, level=0.95)
+```
+
+The histogram of bootstrapped samples of proportions of mean high ratings for "Dancing With the Stars" suggest that the true proportion of mean high ratings for the confusion metric lies within the interval [0.044,0.116] with a 95% confidence. Accordingly, on average, somewhere from 4.4% to 11.6% of viewers will find the show to be confusing.
+
+\pagebreak
+
+## Problem 4:
+
+### 4.A)
+
+**Question:** Is the revenue ratio is the same for the treatment and control groups of Ebay's experiment?
+
+**Approach:** The following histogram displays the distribution of differences of mean revenue ratios for the control vs. treatment group before and after the experiment occurred, according to bootstrapped (simulated) samples. If the difference is consistently positive, then evidence suggests that Ebay's paid advertising initiative does generate extra revenue.
+
+```{r echo = FALSE, message = FALSE}
+ebay <- read_csv("ebay.csv")
+set.rseed(1)
+ebayDiff <- numeric(0)
+for(i in 1:10000) {
+ ebayBoot <- mosaic::resample(ebay) %>%
+    group_by(adwords_pause) %>%
+    summarize(avgRatio = mean(rev_ratio))
+ ebayDiff[i] <- as.numeric(ebayBoot[1,2]-ebayBoot[2,2])
+}
+ebayDiff <- as_tibble(ebayDiff)
+ggplot(ebayDiff) + geom_histogram(aes(x = value)) +
+  labs(title = "Difference in Bootstrapped Mean Revenue Ratios", x = "Diff of Mean Revenue Ratios (Control - Treatment)")
+
+#confint(ebayDiff$value, level=0.95)
+```
+
+**Results/Conclusion:** According to the histogram of bootstrapped samples comparing the control vs. treatment group, the true difference of mean revenue ratios lie within the interval [0.013,0.090], with a 95% confidence. Since the lower end of the interval is greater than 0, this suggests that Ebay's control group generally generated more revenue proportionately than the treatment group where their advising was stopped, thus it's advertising initiative on Google is successful.
